@@ -1,18 +1,20 @@
 class Url < ApplicationRecord
 
-  validates :original_url, presence: true
-  validates :short_url, uniqueness: true
-
-  before_validation :generate_short_url
+  validate :original_url_validation
+  before_save :generate_short_url
 
   private
 
+  def original_url_validation
+    if original_url.blank?
+      raise URI::InvalidURIError, 'URL не может быть пустым'
+    elsif !URI.parse(original_url).is_a?(URI::HTTP) || URI.parse(original_url).host.blank?
+      raise URI::InvalidURIError, 'Не верный формат URL'
+    end
+  end
+
   def generate_short_url
     uri = URI.parse(original_url)
-    if uri.is_a?(URI::HTTP) && uri.host.present?
-      self.short_url ||= "#{uri.scheme}://#{uri.host}/#{SecureRandom.hex(4)}"
-    else
-      raise URI::InvalidURIError unless uri.is_a?(URI::HTTP) && uri.host.present?
-    end
+    self.short_url = "#{uri.scheme}://#{uri.host}/#{Digest::SHA256.hexdigest(original_url)}"
   end
 end

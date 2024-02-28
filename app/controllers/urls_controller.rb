@@ -3,12 +3,17 @@ class UrlsController < ApplicationController
   before_action :find_url, only: %i[show stats]
 
   def create
-    @url = Url.new(original_url: params[:url])
-    begin
-      @url.save!
-      render json: { short_url: @url.short_url, encoded: CGI.escape(@url.short_url).gsub('.', '%2e') }, status: :created
-    rescue StandardError => e
-      render json: { error: "Не удалось создать короткий URL. #{e.message}" }, status: :unprocessable_entity
+    @url = Url.find_or_initialize_by(original_url: params[:url])
+
+    if @url.persisted?
+      render json: { message: 'Для данной ссылки уже существует короткий URL', short_url: @url.short_url }, status: 200
+    else
+      begin
+        @url.save!
+        render json: { short_url: @url.short_url, encoded: CGI.escape(@url.short_url).gsub('.', '%2e') }, status: :created
+      rescue ActiveRecord::RecordInvalid, URI::InvalidURIError => e
+        render json: { error: "Не удалось создать короткий URL. #{e.message}" }, status: :unprocessable_entity
+      end
     end
   end
 
